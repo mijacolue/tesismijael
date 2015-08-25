@@ -1,0 +1,116 @@
+
+echo '1    c l a s s   J o b P r o c e s s
+2	d e f   s e l f . r u n ( j o b _ i d ,   a l e r t   =  t r u e )
+3	i n i c i o   =  Time . now
+4	p u t s  " Início " +   i n i c i o . t o _ s
+5	j o b  =  J o b . f i n d _ b y _ i d ( j o b _ i d )
+6	s t a t u s   =  "SUCESS"
+7	t a b l e m a p  =  j o b . t a b l e m a p
+8	s o u r c e _ t r a n s a c t i o n   =  t a b l e m a p [ : s o u r c e ]  +  "_transactions"
+9	t a r g e t   =  t a b l e m a p [ : t a r g e t ] . t o _ s
+10	s o u r c e _ t a b l e   =  A c t i v e R e c o r d : : B a s e .  c o n n e c t i o n . t a b l e s . s o r t .  s e l e c t    { |  t a b l e |   n o t
+ t a b l e [ s o u r c e _ t r a n s a c t i o n ] . n i l ?  }
+11	i f   s o u r c e _ t a b l e . b l a n k ?
+12	w r i t e _ l o g ( "ERROR" , "Source transaction  table  does not exist!" , j o b )
+13	r e t u r n
+14	e n d
+15	t a r g e t _ t a b l e   =  A c t i v e R e c o r d : : B a s e .  c o n n e c t i o n . t a b l e s . s o r t .  s e l e c t    { |  t a b l e |   n o t
+ t a b l e [ t a r g e t ] . n i l ?  }
+16	i f   t a r g e t _ t a b l e . b l a n k ?
+17	w r i t e _ l o g ( "ERROR" , "Target table does not exist!" , j o b )
+18	r e t u r n
+19	e n d
+20	n e w F i e l d s  =  A c t i v e R e c o r d : : B a s e .  c o n n e c t i o n . c o l u m n s ( s o u r c e _ t r a n s a c t i o n ) .  s e l e c t    { | f i e l d |
+n o t   f i e l d . name [ "new" ] . n i l ?  }
+21	f i e l d s S o u r c e   =   [ ]
+22	f i e l d s T a r g e t   =   [ ]
+23	f o r   map  i n   t a b l e m a p . c o l u m n m a p s
+24	f o r   s o u r c e n a m e   i n   map . s o u r c e c o l u m n m a p s
+25	f i e l d s S o u r c e   <<  s o u r c e n a m e . name . t o _ s
+26	e n d
+27	f o r   t a r g e t n a m e   i n   map . t a r g e t c o l u m n m a p s
+28	f i e l d s T a r g e t   <<  t a r g e t n a m e . name . t o _ s
+29	e n d
+30	e n d
+31	w h i l e   t r u e
+32	t r a n s a c t i o n s   =  A c t i v e R e c o r d : : B a s e .  c o n n e c t i o n . s e l e c t _ a l l ( " select *  from " +
+33	s o u r c e _ t r a n s a c t i o n   +  "  where status!=’EXECUTED’ order by   id" )
+34	i f   t r a n s a c t i o n s . b l a n k ?
+35	j o b . s t a t u s   =  "ESPERANDO"
+36	j o b . s a v e !
+37	p u t s  "PROCESO ESPERANDO"
+38	 e l s e
+39	j o b . s t a t u s   =  "EJECUTANDO"
+40	j o b . s a v e !
+41	p u t s  "PROCESO EJECUTANDO"
+42	f o r   t r a n s a c t i o n    i n   t r a n s a c t i o n s
+43	A c t i v e R e c o r d : : B a s e .  c o n n e c t i o n .  e x e c u t e ( "UPDATE " +   s o u r c e _ t r a n s a c t i o n   +
+44	" set   inicio_PROCESO =  current_time  where id=" +
+ t r a n s a c t i o n [ "id" ] )
+45	comand  =  ""
+46	i f   t r a n s a c t i o n [ "operation" ]   ==  "INSERT"
+47	comand  =  "INSERT   INTO  " +   t a r g e t   +  "(" +  ( f i e l d s S o u r c e ∗"," )  +"  , id)
+values ("
+48	c o u n t   =  1
+49	f o r   f i e l d   i n   f i e l d s S o u r c e
+50	c o l u m n s  =  n e w F i e l d s .  s e l e c t   {   |  c o l u m n |   c o l u m n . name [ 4 . .  c o l u m n . name .  s i z e ]
+==   f i e l d   }
+51	i f   c o l u m n s [ 0 ] . t y p e . t o _ s   ==  "string" o r  c o l u m n s [ 0 ] . t y p e . t o _ s   ==  "datetime"
+52	comand  +=  "’" +  t r a n s a c t i o n [ "new_"  +   f i e l d ] . t o _ s   +  "’"
+53	 e l s e
+54	comand  +=  t r a n s a c t i o n [ "new_"  +   f i e l d ] . t o _ s
+55	e n d
+56	i f   c o u n t   ! =   f i e l d s S o u r c e .  s i z e
+57	comand  +=  ","
+58	e n d
+59	c o u n t   +=  1
+60	e n d
+61	comand  +=  "," +  t r a n s a c t i o n [ "id_table" ] . t o _ s   +  ")"
+62	e n d
+63	i f   t r a n s a c t i o n [ "operation" ]   ==  "DELETE"
+64	comand  =  "DELETE  FROM  " +   t a r g e t   +  " WHERE  id =  " +
+ t r a n s a c t i o n [ "id_table" ] . t o _ s
+65	e n d
+66	i f   t r a n s a c t i o n [ "operation" ]   ==  "UPDATE"
+67	comand  =  "UPDATE " +   t a r g e t   +  " SET  (" +  ( f i e l d s T a r g e t ∗"," )  +")  =  ("
+68	c o u n t   =  1
+69	f o r   f i e l d   i n   f i e l d s S o u r c e
+70	c o l u m n s  =  n e w F i e l d s .  s e l e c t   {   |  c o l u m n |   c o l u m n . name [ 4 . .  c o l u m n . name .  s i z e ]
+==   f i e l d   }
+71	i f   c o l u m n s [ 0 ] . t y p e . t o _ s   ==  "string" o r  c o l u m n s [ 0 ] . t y p e . t o _ s   ==  "datetime"
+72	comand  +=  "’" +  t r a n s a c t i o n [ "new_"  +   f i e l d ] . t o _ s   +  "’"
+73	 e l s e
+74	comand  +=  t r a n s a c t i o n [ "new_"  +   f i e l d ] . t o _ s
+75	e n d
+76	i f   c o u n t   ! =   f i e l d s S o u r c e .  s i z e
+77	comand  +=  ","
+78	e n d
+79	c o u n t   +=  1
+80	e n d
+81	comand  +=  ") WHERE  id =  " +  t r a n s a c t i o n [ "id_table" ] . t o _ s
+82	e n d
+83	b e g i n
+84	r e s u l t   =  A c t i v e R e c o r d : : B a s e .  c o n n e c t i o n .  e x e c u t e ( comand )
+85	r e s c u e
+86	r e s u l t   =   n i l
+87	p u t s ( "==== Erro  de lock  ===" )
+88	e n d
+89	i f   n o t   r e s u l t . n i l ?
+90	A c t i v e R e c o r d : : B a s e .  c o n n e c t i o n .  e x e c u t e ( "UPDATE " +   s o u r c e _ t r a n s a c t i o n   +
+91	" set status =  ’EXECUTED’,  fim_PROCESO =  current_time  where id="
++  t r a n s a c t i o n [ "id" ] )
+92	e n d
+93	e n d   # −−− LOOP DE  TRANSACOES
+94	e n d   # −−− I F  BLANK
+95	e n d   # −−− LOOP  I N F I N I T O
+96	e n d
+97	d e f   s e l f . w r i t e _ l o g   ( s t a t u s ,   m e s s a g e ,   j o b )
+98	l o g  =  Log . new
+99	l o g . t y p e _ l o g   =   s t a t u s
+
+100            l o g .description   =   message
+101            l o g .job_id   =job.id
+102            l o g .save!
+103        job.status   =   status
+104            l o g .save!
+105            end' ;
