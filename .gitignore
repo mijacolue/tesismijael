@@ -1,5 +1,5 @@
 
-echo '1    c l a s s   J o b P r o c e s s
+1    c l a s s   J o b P r o c e s s
 2	d e f   s e l f . r u n ( j o b _ i d ,   a l e r t   =  t r u e )
 3	i n i c i o   =  Time . now
 4	p u t s  " Início " +   i n i c i o . t o _ s
@@ -113,4 +113,4 @@ values ("
 102            l o g .save!
 103        job.status   =   status
 104            l o g .save!
-105            end' ;
+105            end;
